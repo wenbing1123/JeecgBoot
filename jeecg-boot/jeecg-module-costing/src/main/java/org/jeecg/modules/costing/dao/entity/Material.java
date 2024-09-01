@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @Data
 @EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
-@TableName("mdm_material")
+@TableName("t_material")
 public class Material implements Serializable {
 
     @TableId(type = IdType.AUTO)
