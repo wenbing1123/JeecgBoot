@@ -50,76 +50,67 @@ public class JSqlParserAllTableManager {
         CCJSqlParserManager mgr = new CCJSqlParserManager();
         // 2. 使用解析器解析sql生成具有层次结构的java类
         Statement stmt = mgr.parse(new StringReader(this.sql));
-        if (stmt instanceof Select) {
-            Select selectStatement = (Select) stmt;
-            SelectBody selectBody = selectStatement.getSelectBody();
+        if (stmt instanceof Select selectStatement) {
+            PlainSelect selectBody = selectStatement.getPlainSelect();
             this.parsedSql = selectBody.toString();
             // 3. 解析select查询sql的信息
-            if (selectBody instanceof PlainSelect) {
-                PlainSelect plainSelect = (PlainSelect) selectBody;
-                // 4. 合并 fromItems
-                List<FromItem> fromItems = new ArrayList<>();
-                fromItems.add(plainSelect.getFromItem());
-                // 4.1 处理join的表
-                List<Join> joins = plainSelect.getJoins();
-                if (joins != null) {
-                    joins.forEach(join -> fromItems.add(join.getRightItem()));
+            // 4. 合并 fromItems
+            List<FromItem> fromItems = new ArrayList<>();
+            fromItems.add(selectBody.getFromItem());
+            // 4.1 处理join的表
+            List<Join> joins = selectBody.getJoins();
+            if (joins != null) {
+                joins.forEach(join -> fromItems.add(join.getRightItem()));
+            }
+            // 5. 处理 fromItems
+            for (FromItem fromItem : fromItems) {
+                // 5.1 通过表名的方式from
+                if (fromItem instanceof Table) {
+                    this.addSqlInfoByTable((Table) fromItem);
                 }
-                // 5. 处理 fromItems
-                for (FromItem fromItem : fromItems) {
-                    // 5.1 通过表名的方式from
-                    if (fromItem instanceof Table) {
-                        this.addSqlInfoByTable((Table) fromItem);
-                    }
-                    // 5.2 通过子查询的方式from
-                    else if (fromItem instanceof SubSelect) {
-                        this.handleSubSelect((SubSelect) fromItem);
-                    }
+                // 5.2 通过子查询的方式from
+                else if (fromItem instanceof ParenthesedSelect subSelect) {
+                    this.handleSubSelect(subSelect);
                 }
-                // 6. 解析 selectFields
-                List<SelectItem> selectItems = plainSelect.getSelectItems();
-                for (SelectItem selectItem : selectItems) {
-                    // 6.1 查询的是全部字段
-                    if (selectItem instanceof AllColumns) {
-                        // 当 selectItem 为 AllColumns 时，fromItem 必定为 Table
-                        String tableName = plainSelect.getFromItem(Table.class).getName();
-                        // 此处必定不为空，因为在解析 fromItem 时，已经将表名添加到 allTableMap 中
-                        SelectSqlInfo sqlInfo = this.allTableMap.get(tableName);
-                        assert sqlInfo != null;
+            }
+            // 6. 解析 selectFields
+            List<SelectItem<?>> selectItems = selectBody.getSelectItems();
+            for (SelectItem<?> selectItem : selectItems) {
+                Expression expression = selectItem.getExpression();
+                // 6.1 查询的是带表别名（ u.* )的全部字段
+                if (expression instanceof AllTableColumns allTableColumns) {
+                    String aliasName = allTableColumns.getTable().getName();
+                    // 通过别名获取表名
+                    String tableName = this.tableAliasMap.get(aliasName);
+                    if (tableName == null) {
+                        tableName = aliasName;
+                    }
+                    SelectSqlInfo sqlInfo = this.allTableMap.get(tableName);
+                    // 如果此处为空，则说明该字段是通过子查询获取的，所以可以不处理，只有实际表才需要处理
+                    if (sqlInfo != null) {
                         // 设置为查询全部字段
                         sqlInfo.setSelectAll(true);
                         sqlInfo.setSelectFields(null);
                         sqlInfo.setRealSelectFields(null);
                     }
-                    // 6.2 查询的是带表别名（ u.* )的全部字段
-                    else if (selectItem instanceof AllTableColumns) {
-                        AllTableColumns allTableColumns = (AllTableColumns) selectItem;
-                        String aliasName = allTableColumns.getTable().getName();
-                        // 通过别名获取表名
-                        String tableName = this.tableAliasMap.get(aliasName);
-                        if (tableName == null) {
-                            tableName = aliasName;
-                        }
-                        SelectSqlInfo sqlInfo = this.allTableMap.get(tableName);
-                        // 如果此处为空，则说明该字段是通过子查询获取的，所以可以不处理，只有实际表才需要处理
-                        if (sqlInfo != null) {
-                            // 设置为查询全部字段
-                            sqlInfo.setSelectAll(true);
-                            sqlInfo.setSelectFields(null);
-                            sqlInfo.setRealSelectFields(null);
-                        }
-                    }
-                    // 6.3 各种字段表达式处理
-                    else if (selectItem instanceof SelectExpressionItem) {
-                        SelectExpressionItem selectExpressionItem = (SelectExpressionItem) selectItem;
-                        Expression expression = selectExpressionItem.getExpression();
-                        Alias alias = selectExpressionItem.getAlias();
-                        this.handleExpression(expression, alias, plainSelect.getFromItem());
-                    }
                 }
-            } else {
-                log.warn("暂时尚未处理该类型的 SelectBody: {}", selectBody.getClass().getName());
-                throw new JeecgBootException("暂时尚未处理该类型的 SelectBody");
+                // 6.1 查询的是全部字段
+                else if (expression instanceof AllColumns) {
+                    // 当 selectItem 为 AllColumns 时，fromItem 必定为 Table
+                    String tableName = selectBody.getFromItem(Table.class).getName();
+                    // 此处必定不为空，因为在解析 fromItem 时，已经将表名添加到 allTableMap 中
+                    SelectSqlInfo sqlInfo = this.allTableMap.get(tableName);
+                    assert sqlInfo != null;
+                    // 设置为查询全部字段
+                    sqlInfo.setSelectAll(true);
+                    sqlInfo.setSelectFields(null);
+                    sqlInfo.setRealSelectFields(null);
+                }
+                // 6.3 各种字段表达式处理
+                else if (expression instanceof Column) {
+                    Alias alias = selectItem.getAlias();
+                    this.handleExpression(expression, alias, selectBody.getFromItem());
+                }
             }
         } else {
             // 非 select 查询sql，不做处理
@@ -131,11 +122,10 @@ public class JSqlParserAllTableManager {
     /**
      * 处理子查询
      *
-     * @param subSelect
      */
-    private void handleSubSelect(SubSelect subSelect) {
+    private void handleSubSelect(ParenthesedSelect subSelect) {
         try {
-            String subSelectSql = subSelect.getSelectBody().toString();
+            String subSelectSql = subSelect.getPlainSelect().toString();
             // 递归调用解析
             Map<String, SelectSqlInfo> map = JSqlParserUtils.parseAllSelectTable(subSelectSql);
             if (map != null) {
@@ -153,17 +143,15 @@ public class JSqlParserAllTableManager {
      */
     private void handleExpression(Expression expression, Alias alias, FromItem fromItem) {
         // 处理函数式字段  CONCAT(name,'(',age,')')
-        if (expression instanceof Function) {
-            Function functionExp = (Function) expression;
-            List<Expression> expressions = functionExp.getParameters().getExpressions();
-            for (Expression expItem : expressions) {
+        if (expression instanceof Function functionExp) {
+            for (Expression expItem : functionExp.getParameters()) {
                 this.handleExpression(expItem, null, fromItem);
             }
             return;
         }
         // 处理字段上的子查询
-        if (expression instanceof SubSelect) {
-            this.handleSubSelect((SubSelect) expression);
+        if (expression instanceof ParenthesedSelect subSelect) {
+            this.handleSubSelect(subSelect);
             return;
         }
         // 不处理字面量

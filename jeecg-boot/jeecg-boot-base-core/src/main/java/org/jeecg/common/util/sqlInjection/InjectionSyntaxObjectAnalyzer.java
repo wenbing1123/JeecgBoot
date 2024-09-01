@@ -8,12 +8,7 @@ import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
 import net.sf.jsqlparser.expression.operators.conditional.OrExpression;
 import net.sf.jsqlparser.expression.operators.relational.ComparisonOperator;
 import net.sf.jsqlparser.schema.Column;
-import net.sf.jsqlparser.statement.select.Join;
-import net.sf.jsqlparser.statement.select.OrderByElement;
-import net.sf.jsqlparser.statement.select.PlainSelect;
-import net.sf.jsqlparser.statement.select.SelectItem;
-import net.sf.jsqlparser.statement.select.SubSelect;
-import net.sf.jsqlparser.statement.select.WithItem;
+import net.sf.jsqlparser.statement.select.*;
 import net.sf.jsqlparser.util.TablesNamesFinder;
 import org.jeecg.common.exception.JeecgSqlInjectionException;
 import org.jeecg.common.util.sqlInjection.parse.ConstAnalyzer;
@@ -91,11 +86,11 @@ public class InjectionSyntaxObjectAnalyzer extends TablesNamesFinder {
     }
 
     @Override
-    public void visit(SubSelect subSelect) {
+    public void visit(Select select) {
         try {
             /** 允许语句中的子查询 */
             disableSubselect.set(false);
-            super.visit(subSelect);
+            super.visit(select);
         } finally {
             disableSubselect.set(true);
         }
@@ -151,9 +146,7 @@ public class InjectionSyntaxObjectAnalyzer extends TablesNamesFinder {
             }
         }
         if (plainSelect.getGroupBy() != null) {
-            for (Expression expression : plainSelect.getGroupBy().getGroupByExpressionList().getExpressions()) {
-                expression.accept(this);
-            }
+            plainSelect.getGroupBy().getGroupByExpressionList().accept(this);
         }
     }
 
