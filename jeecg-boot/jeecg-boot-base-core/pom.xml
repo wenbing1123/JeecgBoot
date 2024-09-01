@@ -10,7 +10,6 @@
 	<artifactId>jeecg-boot-base-core</artifactId>
 
 	<properties>
-		<spring-boot.version>3.1.5</spring-boot.version>
 	</properties>
 
 	<repositories>
