@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 @Data
 @EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
-@TableName("erp_inbound")
+@TableName("t_inbound")
 public class Inventory implements Serializable {
 
     @TableId(type = IdType.AUTO)

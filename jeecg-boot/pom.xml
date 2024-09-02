@@ -86,7 +86,7 @@
         <module>jeecg-module-demo</module>
         <module>jeecg-module-system</module>
         <module>jeecg-module-costing</module>
-        <module>jeecg-module-bigscreen</module>
+        <module>jeecg-module-flowable</module>
     </modules>
 
 	<repositories>

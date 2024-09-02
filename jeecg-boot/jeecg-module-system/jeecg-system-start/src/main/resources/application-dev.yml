@@ -329,3 +329,10 @@ justauth:
     type: default
     prefix: 'demo::'
     timeout: 1h
+
+flowable:
+  async-executor-activate: false
+  database-schema-update: true
+  activity-font-name: \u5B8B\u4F53
+  label-font-name: \u5B8B\u4F53
+  annotation-font-name: \u5B8B\u4F53

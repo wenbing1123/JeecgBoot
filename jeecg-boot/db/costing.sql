@@ -39,3 +39,10 @@ CREATE TABLE `t_material`  (
                                    `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'ID',
                                    PRIMARY KEY (`id`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8 COLLATE = utf8_bin COMMENT = '物料表' ROW_FORMAT = DYNAMIC;
+
+-- BOM表
+DROP TABLE IF EXISTS `t_tom`;
+CREATE TABLE `t_tom`  (
+                               `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'ID',
+                               PRIMARY KEY (`id`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8 COLLATE = utf8_bin COMMENT = 'BOM表' ROW_FORMAT = DYNAMIC;
